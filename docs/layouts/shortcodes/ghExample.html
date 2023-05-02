@@ -1,19 +1,28 @@
 {{ $repo := .Get "repo" }}
 {{ $path := .Get "path" }}
 {{ $lang := .Get "lang" }}
+{{ $branchDefined := .Get "branch" }}
 
-{{ $url := printf "https://api.github.com/repos/%s/contents/%s" $repo $path }}
+<!-- Find the file on the default default branch 'master', unless 'branch' is given -->
+{{ $branch := "master" }}
+{{ if gt ( len $branchDefined ) 0 }}
+    {{ $branch := $branchDefined }}
+{{ end }}
 
-<!-- Requires a HUGO_PARAMS_GH_TOKEN environment variable -->
+{{ $reqURL := printf "https://api.github.com/repos/%s/contents/%s" $repo $path }}
+{{ $refURL := printf "https://github.com/%s/blob/%s/%s" $repo $branch $path }}
 
-{{ $token := .Site.Params.gh.token2 }}
-{{ if isset .Site.Params.gh "token2" }}
-    {{ $token := .Site.Params.gh.token2 }}
-    {{ $resp := getJSON $url (dict "Accept" "application/vnd.github+json" "Authorization" $token ) }}
+<div class="bg-stone px-4 pt-2 rounded-t-lg inline-block text-base pb-1">
+    <a href="{{ $refURL }}" target="_blank">{{ $path }}</a>
+</div>
+<!-- Requires HUGO_GH_TOKEN environment variable is set -->
+{{ $token := getenv "HUGO_GH_TOKEN" }}
+{{ if gt ( len $token ) 0 }}
+    <!-- If the file does not exist or has been moved, the build will fail entirely. -->
+    {{ $resp := getJSON $reqURL (dict "Accept" "application/vnd.github+json" "Authorization" $token ) }}
     {{ $contents:= index $resp "content" | base64Decode }}
-    <div class="bg-stone px-4 pt-2 rounded-t-lg inline-block text-base pb-1">{{ $path }}</div>
     {{ transform.Highlight $contents $lang }}
 {{ else }}
-    <div class="bg-stone px-4 pt-2 rounded-t-lg inline-block text-base pb-1">{{ $path }}</div>
-    {{ transform.Highlight "No HUGO_PARAMS_GH_TOKEN defined." "bash" }}
+    <!-- If a token is not provided, print some dummy content instructing user to define one. -->
+    {{ transform.Highlight "[Forbidden] Example file unavailable" "bash" }}
 {{ end }}
